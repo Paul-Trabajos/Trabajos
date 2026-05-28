@@ -50,7 +50,7 @@
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'DM Sans', sans-serif; -webkit-tap-highlight-color: transparent; }
 body { background: var(--bg); color: var(--text); padding-bottom: 100px; min-height: 100vh; transition: background 0.3s, color 0.3s; overflow-x: hidden; }
 
-header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 20px; sticky; top: 0; z-index: 10; display: flex; justify-content: space-between; align-items: center; backdrop-filter: blur(8px); background: opacity 0.95; }
+header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 20px; position: sticky; top: 0; z-index: 10; display: flex; justify-content: space-between; align-items: center; backdrop-filter: blur(8px); }
 .logo-area h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.5px; }
 .logo-area p { font-size: 12px; color: var(--text2); margin-top: 2px; font-family: 'DM Mono', monospace; }
 .header-actions { display: flex; gap: 10px; }
@@ -121,11 +121,7 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 .toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(20px); background: #1a1a1a; color: #fff; padding: 10px 20px; border-radius: 20px; font-size: 13px; font-weight: 500; opacity: 0; transition: all 0.2s; z-index: 300; pointer-events: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
 [data-theme="dark"] .toast { background: #ffffff; color: #090d16; }
 
-/* ==========================================
-   SOPORTE DE IMPRESIÓN Y GENERACIÓN DE PDF
-   ========================================== */
 @media print {
-  /* Forzar reseteo estructural absoluto del viewport */
   html, body {
     background: #ffffff !important;
     color: #000000 !important;
@@ -138,78 +134,16 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
-
-  /* Ocultar la aplicación completa e interfaces del DOM raíz */
-  body > *:not(.panel-overlay) {
-    display: none !important;
-  }
-
-  /* Transformar el overlay en un contenedor plano sin capas flex/posicionadas */
-  .panel-overlay {
-    display: block !important;
-    position: static !important;
-    opacity: 1 !important;
-    background: #ffffff !important;
-    backdrop-filter: none !important;
-    overflow: visible !important;
-    width: 100% !important;
-    height: auto !important;
-  }
-
-  /* Forzar el contenedor del resumen a ocupar la totalidad de la página de impresión */
-  .panel-resumen {
-    display: block !important;
-    position: static !important;
-    width: 100% !important;
-    height: auto !important;
-    max-height: none !important;
-    box-shadow: none !important;
-    background: #ffffff !important;
-    border-radius: 0 !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    transform: none !important;
-    overflow: visible !important;
-  }
-
-  .panel-body {
-    overflow: visible !important;
-    max-height: none !important;
-    padding: 0 !important;
-  }
-
-  /* Remover controles, botones y paginaciones interactivas */
-  .panel-header button,
-  .panel-actions,
-  .no-print {
-    display: none !important;
-  }
-
-  /* Forzar legibilidad total de tablas y celdas */
-  .resumen-tabla {
-    width: 100% !important;
-    page-break-inside: auto !important;
-  }
-
-  .resumen-tabla tr {
-    page-break-inside: avoid !important;
-    break-inside: avoid !important;
-  }
-
-  .resumen-tabla th {
-    color: #000000 !important;
-    border-bottom: 2px solid #000000 !important;
-  }
-
-  .resumen-tabla td {
-    border-bottom: 1px solid #e2e8f0 !important;
-    color: #000000 !important;
-  }
-
-  .resumen-totales {
-    page-break-inside: avoid !important;
-    border-top: 2px dashed #000000 !important;
-  }
+  body > *:not(.panel-overlay) { display: none !important; }
+  .panel-overlay { display: block !important; position: static !important; opacity: 1 !important; background: #ffffff !important; backdrop-filter: none !important; overflow: visible !important; width: 100% !important; height: auto !important; }
+  .panel-resumen { display: block !important; position: static !important; width: 100% !important; height: auto !important; max-height: none !important; box-shadow: none !important; background: #ffffff !important; border-radius: 0 !important; padding: 0 !important; margin: 0 !important; transform: none !important; overflow: visible !important; }
+  .panel-body { overflow: visible !important; max-height: none !important; padding: 0 !important; }
+  .panel-header button, .panel-actions, .no-print { display: none !important; }
+  .resumen-tabla { width: 100% !important; page-break-inside: auto !important; }
+  .resumen-tabla tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+  .resumen-tabla th { color: #000000 !important; border-bottom: 2px solid #000000 !important; }
+  .resumen-tabla td { border-bottom: 1px solid #e2e8f0 !important; color: #000000 !important; }
+  .resumen-totales { page-break-inside: avoid !important; border-top: 2px dashed #000000 !important; }
 }
 </style>
 </head>
@@ -365,7 +299,6 @@ let trabajos = [];
 let currentFilter = 'todos';
 let deferredPrompt = null;
 
-// ELEMENTOS DOM
 const listaTrabajos = document.getElementById('lista-trabajos');
 const themeToggle = document.getElementById('theme-toggle');
 const themeIcon = document.getElementById('theme-icon');
@@ -374,17 +307,14 @@ const panelOverlay = document.getElementById('panel-overlay');
 const panelResumen = document.getElementById('panel-resumen');
 const trabajoForm = document.getElementById('trabajo-form');
 
-// FORMATO MONEDA
 const formatMoney = (val) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(val);
 
-// SET FECHA HOY EN CABECERA
 function setDateHeader() {
   const opciones = { weekday: 'long', day: 'numeric', month: 'short' };
   const hoy = new Date().toLocaleDateString('es-ES', opciones);
   document.getElementById('header-date').innerText = hoy.charAt(0).toUpperCase() + hoy.slice(1);
 }
 
-// TOAST NOTIFICACIÓN
 function toast(msg) {
   const t = document.getElementById('toast');
   t.innerText = msg;
@@ -396,7 +326,6 @@ function toast(msg) {
   }, 2500);
 }
 
-// MANEJO DE TEMA (CLARO/OSCURO)
 themeToggle.addEventListener('click', () => {
   const currentTheme = document.documentElement.getAttribute('data-theme');
   const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
@@ -411,7 +340,6 @@ function updateThemeIcon(theme) {
     : '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>';
 }
 
-// CARGAR / GUARDAR LOCALSTORAGE
 function load() {
   const data = localStorage.getItem('trabajos');
   trabajos = data ? JSON.parse(data) : [];
@@ -423,15 +351,17 @@ function save() {
   render();
 }
 
-// RENDERIZAR LISTADO PRINCIPAL Y ESTADÍSTICAS
 function render() {
   listaTrabajos.innerHTML = '';
   let totalPendiente = 0;
   let totalPagado = 0;
   let filtrados = 0;
 
-  // Ordenar cronológicamente por fecha descendente
-  trabajos.sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+  trabajos.sort((a, b) => {
+    const db = b.fecha ? new Date(b.fecha) : 0;
+    const da = a.fecha ? new Date(a.fecha) : 0;
+    return db - da;
+  });
 
   trabajos.forEach(t => {
     const montoNum = parseFloat(t.monto) || 0;
@@ -444,7 +374,6 @@ function render() {
     const item = document.createElement('div');
     item.className = 'trabajo-item';
     
-    // Convertir fecha UTC a local legible
     const fLocal = t.fecha ? t.fecha.split('-').reverse().join('/') : '';
 
     item.innerHTML = `
@@ -480,7 +409,6 @@ function render() {
   }
 }
 
-// INTERRUPTOR DE FILTROS
 document.querySelectorAll('.filter-btn').forEach(btn => {
   btn.addEventListener('click', (e) => {
     document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
@@ -490,7 +418,6 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
   });
 });
 
-// MODAL NUEVO / EDITAR
 document.getElementById('btn-nuevo').addEventListener('click', () => {
   trabajoForm.reset();
   document.getElementById('trabajo-id').value = '';
@@ -523,7 +450,6 @@ function openEdit(id) {
   openModal();
 }
 
-// GUARDAR TRABAJO
 function saveTrabajo(e) {
   e.preventDefault();
   const id = document.getElementById('trabajo-id').value;
@@ -548,7 +474,6 @@ function saveTrabajo(e) {
   save();
 }
 
-// CAMBIAR ESTADO RÁPIDO
 function toggleEstado(id) {
   const t = trabajos.find(x => x.id === id);
   if(t) {
@@ -558,7 +483,6 @@ function toggleEstado(id) {
   }
 }
 
-// ELIMINAR TRABAJO
 function deleteTrabajo(id) {
   if(confirm('¿Eliminar de forma permanente este registro?')) {
     trabajos = trabajos.filter(x => x.id !== id);
@@ -567,7 +491,6 @@ function deleteTrabajo(id) {
   }
 }
 
-// APERTURA Y CIERRE DE PANEL DE REPORTE
 document.getElementById('btn-open-resumen').addEventListener('click', openResumen);
 
 function openResumen() {
@@ -582,14 +505,11 @@ function closeResumen() {
   setTimeout(() => panelOverlay.style.display = 'none', 300);
 }
 
-// CONSTRUIR TABLA DE RESUMEN
 function buildResumen() {
   const tbody = document.getElementById('resumen-tbody');
   tbody.innerHTML = '';
   
   let tPendiente = 0, tPagado = 0;
-  
-  // Filtrar según la visualización activa
   const filtrados = trabajos.filter(t => currentFilter === 'todos' || t.estado === currentFilter);
 
   if(filtrados.length > 0) {
@@ -610,7 +530,7 @@ function buildResumen() {
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td style="white-space:nowrap; font-family:'DM Mono', monospace;">${t.fecha.split('-').reverse().slice(0,2).join('/')}</td>
+      <td style="white-space:nowrap; font-family:'DM Mono', monospace;">${t.fecha ? t.fecha.split('-').reverse().slice(0,2).join('/') : ''}</td>
       <td style="font-weight:500;">${t.cliente}</td>
       <td><span class="tag ${t.estado}" style="font-size:9px; padding:1px 4px;">${t.estado}</span></td>
       <td style="text-align:right; font-weight:600;">${formatMoney(monto)}</td>
@@ -623,20 +543,15 @@ function buildResumen() {
   document.getElementById('resumen-total-general').innerText = formatMoney(tPendiente + tPagado);
 }
 
-// SOLUCIÓN AL POOLER DE IMPRESIÓN MÓVIL
 function imprimirResumen() {
-  // Ocultar teclados activos del celular para prevenir fallas de redibujado de la pantalla
   if (document.activeElement) {
     document.activeElement.blur();
   }
-
-  // Pequeño retraso para dar tiempo a la sincronización del viewport del celular
   setTimeout(() => {
     window.print();
   }, 350);
 }
 
-// EXPORTACIÓN A EXCEL
 function exportExcel() {
   const filtrados = trabajos.filter(t => currentFilter === 'todos' || t.estado === currentFilter);
   if(filtrados.length === 0) { toast('Sin datos para exportar'); return; }
@@ -653,7 +568,6 @@ function exportExcel() {
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Trabajos");
 
-  // Ajustar anchos automáticos
   const maxProps = [{wch: 12}, {wch: 25}, {wch: 35}, {wch: 15}, {wch: 12}];
   worksheet['!cols'] = maxProps;
 
@@ -661,7 +575,6 @@ function exportExcel() {
   toast('Archivo Excel descargado');
 }
 
-// DETECCIÓN PWA E INSTALACIÓN
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredPrompt = e;
@@ -685,13 +598,11 @@ async function triggerInstall() {
 document.getElementById('btn-install-pwa').addEventListener('click', triggerInstall);
 document.getElementById('manual-install-btn').addEventListener('click', triggerInstall);
 
-// CIERRE DE CAPAS FLOTANTES EN OVERLAY
 document.getElementById('modal-overlay').addEventListener('click', e => { if(e.target === e.currentTarget) closeModal(); });
 document.getElementById('panel-overlay').addEventListener('click', e => { if(e.target === e.currentTarget) closeResumen(); });
 
 document.addEventListener('keydown', e => { if(e.key === 'Escape'){ closeModal(); closeResumen(); } });
 
-// INICIALIZACIÓN GENERAL
 const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
 document.documentElement.setAttribute('data-theme', savedTheme);
 updateThemeIcon(savedTheme);
