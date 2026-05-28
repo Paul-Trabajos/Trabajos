@@ -258,6 +258,8 @@ tbody td{padding:12px 14px;vertical-align:middle}
 .btn-install{padding:7px 14px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius-sm);font-family:var(--font);font-size:12px;font-weight:500;cursor:pointer}
 .btn-dismiss{background:none;border:none;cursor:pointer;color:var(--accent-mid);font-size:18px;padding:0 4px;line-height:1}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
 <div class="app">
@@ -909,7 +911,7 @@ function imprimirReporte() {
   const monthVal = document.getElementById('res-month').value;
   const statusVal = document.getElementById('res-status').value;
   const clientVal = document.getElementById('res-client').value.toLowerCase().trim();
-  
+
   let filtered = works.filter(w => {
     const mMatch = !monthVal || monthKey(w.start) === monthVal || monthKey(w.end) === monthVal;
     let sMatch = true;
@@ -924,112 +926,116 @@ function imprimirReporte() {
     return;
   }
 
-  const total = filtered.length;
-  const pagados = filtered.filter(w => w.paid).length;
-  const sinPagar = filtered.filter(w => !w.paid).length;
+  const total     = filtered.length;
+  const pagados   = filtered.filter(w => w.paid).length;
+  const sinPagar  = filtered.filter(w => !w.paid).length;
   const terminadas = filtered.filter(w => w.start && w.end).length;
 
-  const printWindow = window.open('', '_blank');
-  
-  let rowsHtml = '';
-  filtered.forEach((w, index) => {
-    const estadoTexto = w.paid ? 'PAGADO' : 'NO PAGADO';
-    const estadoEstilo = w.paid ? 'color: #16a34a; font-weight: bold;' : 'color: #dc2626; font-weight: bold;';
-    rowsHtml += `
-      <tr>
-        <td style="text-align:center;">${index + 1}</td>
-        <td><strong>${esc(w.name)}</strong></td>
-        <td>${esc(w.client || '—')}</td>
-        <td style="font-family:monospace; text-align:center;">${fmtDate(w.start)}</td>
-        <td style="font-family:monospace; text-align:center;">${fmtDate(w.end)}</td>
-        <td style="${estadoEstilo} text-align:center;">${estadoTexto}</td>
-        <td style="font-size:11px; color:#555;">${esc(w.note || '—')}</td>
-      </tr>
-    `;
+  // jsPDF (UMD) expone window.jspdf.jsPDF
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+  const pageW = doc.internal.pageSize.getWidth();
+  const margin = 14;
+  let y = margin;
+
+  // ── Encabezado ──────────────────────────────────────────────
+  doc.setFontSize(16);
+  doc.setTextColor(26, 107, 74); // verde acento
+  doc.setFont('helvetica', 'bold');
+  doc.text('REGISTRO DE TRABAJOS PAUL', margin, y);
+
+  doc.setFontSize(9);
+  doc.setTextColor(100);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Filtros: Mes [${monthVal ? monthLabel(monthVal) : 'Todos'}] | Cliente [${clientVal || 'Todos'}]`, margin, y + 6);
+
+  const fecha = new Date().toLocaleDateString('es-CL');
+  doc.text(`Fecha impresión: ${fecha}   Usuario: Paul Varona`, pageW - margin, y + 3, { align: 'right' });
+
+  // línea separadora
+  y += 12;
+  doc.setDrawColor(34, 34, 34);
+  doc.setLineWidth(0.5);
+  doc.line(margin, y, pageW - margin, y);
+  y += 6;
+
+  // ── Métricas ─────────────────────────────────────────────────
+  const boxW = 44;
+  const boxH = 14;
+  const metrics = [
+    { label: 'TOTAL TRABAJOS', val: String(total),    color: [30, 30, 30] },
+    { label: 'PAGADOS',        val: String(pagados),   color: [22, 163, 74]  },
+    { label: 'SIN PAGAR',      val: String(sinPagar),  color: [220, 38, 38]  },
+    { label: 'N° TERMINADAS',  val: String(terminadas),color: [217, 119, 6]  },
+  ];
+  metrics.forEach((m, i) => {
+    const x = margin + i * (boxW + 4);
+    doc.setFillColor(244, 244, 245);
+    doc.setDrawColor(200);
+    doc.roundedRect(x, y, boxW, boxH, 2, 2, 'FD');
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...m.color);
+    doc.text(m.val, x + boxW / 2, y + 7, { align: 'center' });
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100);
+    doc.text(m.label, x + boxW / 2, y + 12, { align: 'center' });
+  });
+  y += boxH + 6;
+
+  // ── Tabla ────────────────────────────────────────────────────
+  const rows = filtered.map((w, idx) => [
+    idx + 1,
+    w.name || '',
+    w.client || '—',
+    fmtDate(w.start),
+    fmtDate(w.end),
+    w.paid ? 'PAGADO' : 'NO PAGADO',
+    w.note || '—'
+  ]);
+
+  doc.autoTable({
+    startY: y,
+    margin: { left: margin, right: margin },
+    head: [['N°', 'Proyecto / Tarea', 'Cliente / Mandante', 'F. Inicio', 'F. Término', 'Estado', 'Nota / Descripción']],
+    body: rows,
+    styles: { fontSize: 9, cellPadding: 3, overflow: 'linebreak' },
+    headStyles: { fillColor: [244, 244, 245], textColor: [60, 60, 60], fontStyle: 'bold', fontSize: 8 },
+    columnStyles: {
+      0: { cellWidth: 8,  halign: 'center' },
+      1: { cellWidth: 52 },
+      2: { cellWidth: 40 },
+      3: { cellWidth: 22, halign: 'center' },
+      4: { cellWidth: 22, halign: 'center' },
+      5: { cellWidth: 24, halign: 'center',
+           didParseCell: function(d) {
+             if (d.section === 'body' && d.column.index === 5) {
+               d.cell.styles.textColor = d.cell.raw === 'PAGADO' ? [22,163,74] : [220,38,38];
+               d.cell.styles.fontStyle = 'bold';
+             }
+           }
+         },
+      6: { cellWidth: 'auto', fontSize: 8, textColor: [100, 100, 100] }
+    },
+    alternateRowStyles: { fillColor: [250, 250, 250] },
+    didDrawPage: function(d) {
+      // Pie de página con número
+      doc.setFontSize(8);
+      doc.setTextColor(150);
+      doc.text(
+        `Pág. ${d.pageNumber}`,
+        pageW - margin,
+        doc.internal.pageSize.getHeight() - 8,
+        { align: 'right' }
+      );
+    }
   });
 
-  const content = `
-    <!DOCTYPE html>
-    <html lang="es">
-    <head>
-      <meta charset="UTF-8">
-      <title>Reporte de Trabajos</title>
-      <style>
-        @page { size: auto; margin: 0mm; }
-        body { font-family: 'Segoe UI', Helvetica, Arial, sans-serif; color: #111; margin: 20mm 15mm; font-size: 13px; line-height: 1.4; }
-        .print-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #222; padding-bottom: 12px; margin-bottom: 20px; }
-        .title-area h1 { font-size: 20px; margin: 0 0 4px 0; color: #1a6b4a; text-transform: uppercase; letter-spacing: -0.5px; }
-        .title-area p { margin: 0; color: #666; font-size: 12px; }
-        .meta-area { text-align: right; font-size: 11px; color: #444; }
-        
-        .metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
-        .metric-box { background: #f4f4f5; border: 1px solid #e4e4e7; border-radius: 6px; padding: 10px; text-align: center; }
-        .metric-box .val { font-size: 18px; font-weight: bold; margin-bottom: 2px; }
-        .metric-box .lbl { font-size: 10px; color: #666; text-transform: uppercase; font-weight: 600; }
-        
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; }
-        th { background: #f4f4f5; border: 1px solid #d4d4d8; padding: 8px 10px; font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; text-align: left; }
-        td { border: 1px solid #e4e4e7; padding: 8px 10px; vertical-align: middle; }
-        tr:nth-child(even) { background: #fafafa; }
-        
-        @media print {
-          body { margin: 20mm 15mm; font-size: 12px; }
-          .metric-box { background: #f4f4f5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          th { background: #e4e4e7 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        }
-      </style>
-    </head>
-    <body>
-      <div class="print-header">
-        <div class="title-area">
-          <h1>Registro de Trabajos Paul</h1>
-          <p>Filtros: Mes [${monthVal ? monthLabel(monthVal) : 'Todos'}] | Cliente [${clientVal || 'Todos'}]</p>
-        </div>
-        <div class="meta-area">
-          <strong>Fecha Impresión:</strong> ${new Date().toLocaleDateString('es-CL')}<br>
-          <strong>Usuario:</strong> Paul Varona
-        </div>
-      </div>
-
-      <div class="metrics-grid">
-        <div class="metric-box"><div class="val">${total}</div><div class="lbl">Total Trabajos</div></div>
-        <div class="metric-box" style="border-left: 3px solid #16a34a;"><div class="val" style="color:#16a34a;">${pagados}</div><div class="lbl">Pagados</div></div>
-        <div class="metric-box" style="border-left: 3px solid #dc2626;"><div class="val" style="color:#dc2626;">${sinPagar}</div><div class="lbl">Sin Pagar</div></div>
-        <div class="metric-box" style="border-left: 3px solid #d97706;"><div class="val" style="color:#d97706;">${terminadas}</div><div class="lbl">N° Terminadas</div></div>
-      </div>
-
-      <table>
-        <thead>
-          <tr>
-            <th style="width: 4%; text-align:center;">N°</th>
-            <th style="width: 25%;">Proyecto / Tarea</th>
-            <th style="width: 18%;">Cliente / Mandante</th>
-            <th style="width: 11%; text-align:center;">F. Inicio</th>
-            <th style="width: 11%; text-align:center;">F. Término</th>
-            <th style="width: 13%; text-align:center;">ESTADO</th>
-            <th style="width: 18%;">Nota / Descripción</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rowsHtml}
-        </tbody>
-      </table>
-      
-      <script>
-        window.onload = function() {
-          setTimeout(function() {
-            window.print();
-            window.close();
-          }, 300);
-        };
-      <\/script>
-    </body>
-    </html>
-  `;
-
-  printWindow.document.open();
-  printWindow.document.write(content);
-  printWindow.document.close();
+  // ── Guardar / descargar ──────────────────────────────────────
+  const nombreArchivo = `reporte_trabajos_${fecha.replace(/\//g,'-')}.pdf`;
+  doc.save(nombreArchivo);
 }
 
 function updateThemeIcon(theme){
