@@ -1009,19 +1009,17 @@ function imprimirReporte() {
       2: { cellWidth: 40 },
       3: { cellWidth: 22, halign: 'center' },
       4: { cellWidth: 22, halign: 'center' },
-      5: { cellWidth: 24, halign: 'center',
-           didParseCell: function(d) {
-             if (d.section === 'body' && d.column.index === 5) {
-               d.cell.styles.textColor = d.cell.raw === 'PAGADO' ? [22,163,74] : [220,38,38];
-               d.cell.styles.fontStyle = 'bold';
-             }
-           }
-         },
+      5: { cellWidth: 24, halign: 'center' },
       6: { cellWidth: 'auto', fontSize: 8, textColor: [100, 100, 100] }
+    },
+    didParseCell: function(d) {
+      if (d.section === 'body' && d.column.index === 5) {
+        d.cell.styles.textColor = d.cell.raw === 'PAGADO' ? [22, 163, 74] : [220, 38, 38];
+        d.cell.styles.fontStyle = 'bold';
+      }
     },
     alternateRowStyles: { fillColor: [250, 250, 250] },
     didDrawPage: function(d) {
-      // Pie de página con número
       doc.setFontSize(8);
       doc.setTextColor(150);
       doc.text(
