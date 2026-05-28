@@ -12,7 +12,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root {
   --bg: #f8f7f4;
@@ -117,8 +116,8 @@ tbody td{padding:12px 14px;vertical-align:middle}
 .check-wrap input[type=checkbox]{width:17px;height:17px;cursor:pointer;accent-color:var(--accent-mid)}
 .check-date{font-size:10px;color:var(--text3);font-family:var(--font-mono);white-space:nowrap}
 .td-note{font-size:12px;color:var(--text2);max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.td-actions{text-align:right;white-space:nowrap}
-.row-btn{background:none;border:none;cursor:pointer;color:var(--text3);padding:5px;border-radius:6px;transition:all .15s;display:inline-flex;align-items:center}
+.td-actions{text-align:right;white-space:nowrap;display:flex;gap:4px;justify-content:flex-end}
+.row-btn{background:none;border:none;cursor:pointer;color:var(--text2);padding:6px;border-radius:6px;transition:all .15s;display:inline-flex;align-items:center}
 .row-btn:hover{color:var(--text);background:var(--surface2)}
 .row-btn.del:hover{color:var(--red);background:var(--red-light)}
 .row-btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -182,11 +181,8 @@ tbody td{padding:12px 14px;vertical-align:middle}
 .btn-export{display:flex;align-items:center;gap:7px;padding:9px 16px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);font-family:var(--font);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s}
 .btn-export:hover{background:var(--surface2);border-color:var(--border2)}
 .btn-export svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.btn-export.excel{border-color:#15803d;color:#15803d}
-.btn-export.excel:hover{background:#f0fdf4}
-[data-theme="dark"] .btn-export.excel:hover{background:#052e16}
 
-/* REPORTES COMPACTOS Y VISUALES */
+/* COMPONENTES RESUMEN */
 .client-list-container {
   margin-bottom: 16px;
   max-height: 130px;
@@ -345,7 +341,7 @@ tbody td{padding:12px 14px;vertical-align:middle}
             <th>Pago</th>
             <th>Estado</th>
             <th>Nota</th>
-            <th></th>
+            <th>Acciones</th>
           </tr>
         </thead>
         <tbody id="tbody"></tbody>
@@ -425,13 +421,9 @@ tbody td{padding:12px 14px;vertical-align:middle}
     <div id="res-works-preview" style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg);margin-bottom:20px;"></div>
 
     <div class="export-row">
-      <button class="btn-export excel" onclick="exportExcel()">
-        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
-        Exportar Excel
-      </button>
-      <button class="btn-export" onclick="imprimirReporte()" style="border-color: var(--accent); color: var(--accent);">
+      <button class="btn-export" onclick="imprimirReporte()" style="border-color: var(--accent); color: #fff; background: var(--accent); width:100%; justify-content: center;">
         <svg viewBox="0 0 24 24" style="stroke: currentColor;"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-        Imprimir Reporte
+        Generar e Imprimir Reporte PDF
       </button>
     </div>
   </div>
@@ -564,12 +556,15 @@ async function load(){
   try { 
     const res = await fetch(API+'?action=getAll'); 
     const data = await res.json(); 
-    if(data && Array.isArray(data)){ 
-      works = data.map(w => ({ 
+    if(data.works && data.works.length){ 
+      works = data.works.map(w => ({ 
         ...w, 
         id: Number(w.id),
         start: parseToIsoDate(w.start), 
         end: parseToIsoDate(w.end), 
+        quoted: w.quoted==='true'||w.quoted===true,
+        invoiced: w.invoiced==='true'||w.invoiced===true,
+        paid: w.paid==='true'||w.paid===true,
         quotedDate: parseToIsoDate(w.quotedDate), 
         invoicedDate: parseToIsoDate(w.invoicedDate), 
         paidDate: parseToIsoDate(w.paidDate)
@@ -577,26 +572,30 @@ async function load(){
       localStorage.setItem(KEY, JSON.stringify(works)); 
       render(); 
       populateMonthFilters(); 
-      showSyncStatus('Actualizado', 'var(--accent-mid)'); 
-    } 
+      showSyncStatus('✓ Sincronizado con Google Sheets', 'var(--accent-mid)'); 
+    } else {
+      showSyncStatus('✓ Conectado', 'var(--accent-mid)');
+    }
   } catch(e) { 
-    showSyncStatus('Modo Offline', 'var(--amber)'); 
+    showSyncStatus('Sin conexión — usando caché local', 'var(--amber)'); 
   } 
 }
 
-async function syncWork(item) {
-  showSyncStatus('Sincronizando...');
+async function save() {
+  localStorage.setItem(KEY, JSON.stringify(works));
+  if(saving) return;
+  saving = true;
+  showSyncStatus('Guardando…');
   try {
     await fetch(API, {
       method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'save', data: item })
+      body: JSON.stringify({ action: 'saveAll', works: works })
     });
-    showSyncStatus('Sincronizado', 'var(--accent-mid)');
+    showSyncStatus('✓ Guardado en Drive', 'var(--accent-mid)');
   } catch(e) {
-    showSyncStatus('Error al sincronizar', 'var(--red)');
+    showSyncStatus('Guardado local (sin internet)', 'var(--amber)');
   }
+  saving = false;
 }
 
 function populateMonthFilters() {
@@ -643,10 +642,20 @@ function render() {
   let filtered = works.filter(w => {
     const mMatch = !fMonth || monthKey(w.start) === fMonth || monthKey(w.end) === fMonth;
     const sMatch = !fStatus || getStatus(w) === fStatus;
-    const qMatch = !query || w.name.toLowerCase().includes(query) || (w.client && w.client.toLowerCase().includes(query));
+    const qMatch = !query || w.name.toLowerCase().includes(query) || 
+                   (w.client && w.client.toLowerCase().includes(query)) ||
+                   (w.note && w.note.toLowerCase().includes(query));
     return mMatch && sMatch && qMatch;
   });
   
+  const banner = document.getElementById('alert-banner');
+  if(alertCount > 0) {
+    banner.style.display = 'flex';
+    document.getElementById('alert-text').textContent = `${alertCount} factura${alertCount>1?'s':''} con más de 30 días sin pago. Revisa el estado de cobro.`;
+  } else {
+    banner.style.display = 'none';
+  }
+
   if(filtered.length === 0) {
     tbody.innerHTML = '';
     empty.style.display = 'block';
@@ -683,24 +692,27 @@ function render() {
         <td class="td-check">
           <div class="check-wrap">
             <input type="checkbox" ${w.quoted?'checked':''} onchange="toggleCheck(${w.id}, 'quoted')">
-            <span class="check-date">${fmtShort(w.quotedDate)}</span>
+            <span class="check-date">${w.quoted ? fmtShort(w.quotedDate) : ''}</span>
           </div>
         </td>
         <td class="td-check">
           <div class="check-wrap">
             <input type="checkbox" ${w.invoiced?'checked':''} onchange="toggleCheck(${w.id}, 'invoiced')">
-            <span class="check-date">${fmtShort(w.invoicedDate)}</span>
+            <span class="check-date">${w.invoiced ? fmtShort(w.invoicedDate) : ''}</span>
           </div>
         </td>
         <td class="td-check">
           <div class="check-wrap">
             <input type="checkbox" ${w.paid?'checked':''} onchange="toggleCheck(${w.id}, 'paid')">
-            <span class="check-date">${fmtShort(w.paidDate)}</span>
+            <span class="check-date">${w.paid ? fmtShort(w.paidDate) : ''}</span>
           </div>
         </td>
         <td>${statusBadge(w)}</td>
         <td class="td-note" title="${esc(w.note)}">${esc(w.note || '—')}</td>
         <td class="td-actions">
+          <button class="row-btn" onclick="openModal(${w.id})" title="Editar">
+            <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
           <button class="row-btn del" onclick="deleteWork(${w.id})" title="Eliminar">
             <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
           </button>
@@ -719,7 +731,7 @@ function openModal(id = null) {
   
   if(id) {
     title.textContent = 'Editar trabajo';
-    const w = works.find(item => item.id === id);
+    const w = works.find(item => Number(item.id) === Number(id));
     if(w) {
       document.getElementById('f-name').value = w.name || '';
       document.getElementById('f-client').value = w.client || '';
@@ -744,88 +756,64 @@ function closeModal() {
 }
 
 async function saveWork() {
-  if(saving) return;
   const name = document.getElementById('f-name').value.trim();
-  if(!name) { alert('El nombre del proyecto es obligatorio'); return; }
-  
-  saving = true;
-  const btn = document.querySelector('.btn-save');
-  btn.textContent = 'Guardando...';
-  
-  const item = {
-    id: editId || Date.now(),
-    name: name,
-    client: document.getElementById('f-client').value.trim(),
-    start: document.getElementById('f-start').value,
-    end: document.getElementById('f-end').value,
-    note: document.getElementById('f-note').value.trim(),
-    quoted: editId ? works.find(w=>w.id===editId).quoted : false,
-    quotedDate: editId ? works.find(w=>w.id===editId).quotedDate : '',
-    invoiced: editId ? works.find(w=>w.id===editId).invoiced : false,
-    invoicedDate: editId ? works.find(w=>w.id===editId).invoicedDate : '',
-    paid: editId ? works.find(w=>w.id===editId).paid : false,
-    paidDate: editId ? works.find(w=>w.id===editId).paidDate : ''
-  };
+  if(!name) { document.getElementById('f-name').focus(); return; }
   
   if(editId) {
-    const idx = works.findIndex(w => w.id === editId);
-    if(idx !== -1) works[idx] = item;
+    const w = works.find(item => Number(item.id) === Number(editId));
+    if(w) {
+      w.name = name;
+      w.client = document.getElementById('f-client').value.trim();
+      w.start = document.getElementById('f-start').value;
+      w.end = document.getElementById('f-end').value;
+      w.note = document.getElementById('f-note').value.trim();
+      toast('Trabajo actualizado');
+    }
   } else {
-    works.unshift(item);
+    works.push({
+      id: Date.now(),
+      name: name,
+      client: document.getElementById('f-client').value.trim(),
+      start: document.getElementById('f-start').value,
+      end: document.getElementById('f-end').value,
+      quoted: false,
+      quotedDate: null,
+      invoiced: false,
+      invoicedDate: null,
+      paid: false,
+      paidDate: null,
+      note: document.getElementById('f-note').value.trim()
+    });
+    toast('Trabajo agregado');
   }
   
-  localStorage.setItem(KEY, JSON.stringify(works));
-  render();
   closeModal();
-  
-  try {
-    await syncWork(item);
-    toast('¡Guardado correctamente!');
-  } catch(e) {
-    toast('Guardado localmente.');
-  } finally {
-    saving = false;
-    btn.textContent = 'Guardar';
-  }
+  render();
+  populateMonthFilters();
+  await save();
 }
 
 async function toggleCheck(id, field) {
-  const w = works.find(item => item.id === id);
+  const w = works.find(item => Number(item.id) === Number(id));
   if(!w) return;
   w[field] = !w[field];
   const todayStr = today();
-  if(field === 'quoted') w.quotedDate = w.quoted ? todayStr : '';
-  if(field === 'invoiced') w.invoicedDate = w.invoiced ? todayStr : '';
-  if(field === 'paid') w.paidDate = w.paid ? todayStr : '';
+  if(field === 'quoted') w.quotedDate = w.quoted ? todayStr : null;
+  if(field === 'invoiced') w.invoicedDate = w.invoiced ? todayStr : null;
+  if(field === 'paid') w.paidDate = w.paid ? todayStr : null;
   
-  localStorage.setItem(KEY, JSON.stringify(works));
   render();
-  await syncWork(w);
+  toast(w[field] ? '✓ Guardado con fecha de hoy' : 'Desmarcado');
+  await save();
 }
 
 async function deleteWork(id) {
   if(!confirm('¿Estás seguro de eliminar este trabajo?')) return;
-  const idx = works.findIndex(w => w.id === id);
-  if(idx === -1) return;
-  works.splice(idx, 1);
-  localStorage.setItem(KEY, JSON.stringify(works));
+  works = works.filter(w => Number(w.id) !== Number(id));
   render();
   populateMonthFilters();
-  
-  showSyncStatus('Eliminando...');
-  try {
-    await fetch(API, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'delete', id: id })
-    });
-    showSyncStatus('Eliminado', 'var(--accent-mid)');
-    toast('Trabajo eliminado del servidor');
-  } catch(e) {
-    showSyncStatus('Error al eliminar', 'var(--red)');
-    toast('Eliminado localmente');
-  }
+  toast('Trabajo eliminado');
+  await save();
 }
 
 function selectClientFilter(clientName) {
@@ -840,7 +828,6 @@ function selectClientFilter(clientName) {
   renderResumen();
 }
 
-/* FIX REQUERIMIENTO 2: CORRECCIÓN DE N° TERMINADAS CONTANDO AMBAS FECHAS PRESENTES */
 function renderResumen() {
   const monthVal = document.getElementById('res-month').value;
   const statusVal = document.getElementById('res-status').value;
@@ -880,8 +867,6 @@ function renderResumen() {
   const total = filtered.length;
   const pagados = filtered.filter(w => w.paid).length;
   const sinPagar = filtered.filter(w => !w.paid).length;
-  
-  // Cuenta como terminada si posee fecha de inicio y término completas
   const terminadas = filtered.filter(w => w.start && w.end).length;
 
   const cardsContainer = document.getElementById('res-cards');
@@ -920,74 +905,6 @@ function closeResumen() {
   document.getElementById('panel-overlay').classList.remove('open');
 }
 
-/* FIX REQUERIMIENTO 1: EXPORTACIÓN FORMAL ESTRUCTURADA CON MAQUETA DE PLANTILLA COMPLETA */
-function exportExcel() {
-  const monthVal = document.getElementById('res-month').value;
-  const statusVal = document.getElementById('res-status').value;
-  const clientVal = document.getElementById('res-client').value.toLowerCase().trim();
-  
-  let filtered = works.filter(w => {
-    const mMatch = !monthVal || monthKey(w.start) === monthVal || monthKey(w.end) === monthVal;
-    let sMatch = true;
-    if(statusVal === 'paid') sMatch = w.paid;
-    if(statusVal === 'unpaid') sMatch = !w.paid;
-    const cMatch = !clientVal || (w.client && w.client.toLowerCase().includes(clientVal));
-    return mMatch && sMatch && cMatch;
-  });
-
-  if (filtered.length === 0) {
-    toast('No hay datos para exportar.');
-    return;
-  }
-
-  // Generación matricial estructurada para simular layout formal
-  const dataAOA = [
-    ['REGISTRO DE TRABAJOS DIARIOS - PAUL VARONA'],
-    [`Reporte generado el: ${new Date().toLocaleDateString('es-CL')} a las ${new Date().toLocaleTimeString('es-CL')}`],
-    ['Filtro mes:', monthVal ? monthLabel(monthVal) : 'Todos', '', 'Filtro cliente:', clientVal || 'Todos'],
-    [], 
-    ['N°', 'Proyecto / Tarea', 'Cliente / Mandante', 'Fecha Inicio', 'Fecha Término', 'Estado de Pago', 'Descripción / Nota']
-  ];
-
-  filtered.forEach((w, index) => {
-    dataAOA.push([
-      index + 1,
-      w.name,
-      w.client || '—',
-      w.start ? fmtDate(w.start) : '—',
-      w.end ? fmtDate(w.end) : '—',
-      w.paid ? 'PAGADO' : 'NO PAGADO',
-      w.note || '—'
-    ]);
-  });
-
-  dataAOA.push([]);
-  dataAOA.push(['', 'RESUMEN METRICAS DEL PERIODO:']);
-  dataAOA.push(['', 'Total Trabajos:', filtered.length]);
-  dataAOA.push(['', 'Trabajos Pagados:', filtered.filter(w => w.paid).length]);
-  dataAOA.push(['', 'Trabajos Sin Pagar:', filtered.filter(w => !w.paid).length]);
-  dataAOA.push(['', 'Trabajos Terminados (Ambas fechas):', filtered.filter(w => w.start && w.end).length]);
-
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet(dataAOA);
-
-  ws['!cols'] = [
-    { wch: 6 },  
-    { wch: 32 }, 
-    { wch: 22 }, 
-    { wch: 14 }, 
-    { wch: 14 }, 
-    { wch: 16 }, 
-    { wch: 38 }  
-  ];
-
-  XLSX.utils.book_append_sheet(wb, ws, 'Reporte de Trabajos');
-  const fileName = `Reporte_Trabajos_${monthVal || 'Completo'}_${today()}.xlsx`;
-  XLSX.writeFile(wb, fileName);
-  toast('¡Excel estructurado exportado!');
-}
-
-/* FIX REQUERIMIENTOS 3 Y 4: COLUMNA "ESTADO: PAGADO/NO PAGADO" Y SALIDA AUTOMÁTICA LIMPIA A IMPRESIÓN/PDF */
 function imprimirReporte() {
   const monthVal = document.getElementById('res-month').value;
   const statusVal = document.getElementById('res-status').value;
@@ -1036,9 +953,10 @@ function imprimirReporte() {
     <html lang="es">
     <head>
       <meta charset="UTF-8">
-      <title>Reporte de Trabajos - Paul Varona</title>
+      <title>Reporte de Trabajos</title>
       <style>
-        body { font-family: 'Segoe UI', Helvetica, Arial, sans-serif; color: #111; margin: 30px; font-size: 13px; line-height: 1.4; }
+        @page { size: auto; margin: 0mm; }
+        body { font-family: 'Segoe UI', Helvetica, Arial, sans-serif; color: #111; margin: 20mm 15mm; font-size: 13px; line-height: 1.4; }
         .print-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #222; padding-bottom: 12px; margin-bottom: 20px; }
         .title-area h1 { font-size: 20px; margin: 0 0 4px 0; color: #1a6b4a; text-transform: uppercase; letter-spacing: -0.5px; }
         .title-area p { margin: 0; color: #666; font-size: 12px; }
@@ -1055,7 +973,7 @@ function imprimirReporte() {
         tr:nth-child(even) { background: #fafafa; }
         
         @media print {
-          body { margin: 15px; font-size: 12px; }
+          body { margin: 20mm 15mm; font-size: 12px; }
           .metric-box { background: #f4f4f5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           th { background: #e4e4e7 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
@@ -1065,7 +983,7 @@ function imprimirReporte() {
       <div class="print-header">
         <div class="title-area">
           <h1>Registro de Trabajos Paul</h1>
-          <p>Filtros aplicados: Mes [${monthVal ? monthLabel(monthVal) : 'Todos'}] | Cliente [${clientVal || 'Todos'}]</p>
+          <p>Filtros: Mes [${monthVal ? monthLabel(monthVal) : 'Todos'}] | Cliente [${clientVal || 'Todos'}]</p>
         </div>
         <div class="meta-area">
           <strong>Fecha Impresión:</strong> ${new Date().toLocaleDateString('es-CL')}<br>
