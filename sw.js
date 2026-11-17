@@ -1,4 +1,4 @@
-const CACHE = 'trabajos-v3';
+const CACHE = 'trabajos-v4';
 
 // Solo cacheamos lo que sabemos que existe con certeza
 const ASSETS = [
